@@ -1,0 +1,71 @@
+version: "3.8"
+
+services:
+  mysql:
+    image: mysql:8.0
+    container_name: stock-mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root_pass
+      MYSQL_DATABASE: stock_market
+      MYSQL_USER: stock_user
+      MYSQL_PASSWORD: stock_pass
+    ports:
+      - "3307:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./scripts/init-db.sql:/docker-entrypoint-initdb.d/init.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  api:
+    build: .
+    container_name: stock-api
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      DB_HOST: mysql
+      DB_USER: stock_user
+      DB_PASSWORD: stock_pass
+      DB_NAME: stock_market
+    depends_on:
+      mysql:
+        condition: service_healthy
+    command: >
+      sh -c "cd /app && alembic upgrade head && uvicorn stock_platform.api.main:app --host 0.0.0.0 --port 8000"
+
+  dashboard:
+    build: .
+    container_name: stock-dashboard
+    restart: unless-stopped
+    ports:
+      - "8501:8501"
+    environment:
+      DB_HOST: mysql
+      DB_USER: stock_user
+      DB_PASSWORD: stock_pass
+      DB_NAME: stock_market
+    depends_on:
+      - api
+    command: streamlit run src/stock_platform/dashboard/app.py --server.port 8501 --server.address 0.0.0.0
+
+  scheduler:
+    build: .
+    container_name: stock-scheduler
+    restart: unless-stopped
+    environment:
+      DB_HOST: mysql
+      DB_USER: stock_user
+      DB_PASSWORD: stock_pass
+      DB_NAME: stock_market
+    depends_on:
+      mysql:
+        condition: service_healthy
+    command: python3 -m stock_platform.scheduler.tasks
+
+volumes:
+  mysql_data:

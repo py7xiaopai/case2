@@ -1,0 +1,38 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "stock-platform"
+version = "0.1.0"
+description = "A 股历史行情数据平台"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.27.0",
+    "streamlit>=1.33.0",
+    "pandas>=2.2.0",
+    "numpy>=1.26.0",
+    "sqlalchemy>=2.0.27",
+    "alembic>=1.13.0",
+    "requests>=2.31.0",
+    "plotly>=5.19.0",
+    "apscheduler>=3.10.4",
+    "pymysql>=1.1.0",
+    "httpx>=0.27.0",
+    "python-dotenv>=1.0.0",
+    "cryptography>=42.0.0",
+    "pydantic>=2.6.0",
+    "pydantic-settings>=2.1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4.0",
+    "pytest-cov>=4.1.0",
+    "httpx>=0.27.0",
+]
+test = ["pytest>=7.4.0", "httpx>=0.27.0"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
