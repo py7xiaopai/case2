@@ -56,7 +56,7 @@ def data_quality_check(session: Session) -> dict:
         .all()
     )
     for dp in outliers:
-        stock = session.query(Stock).get(dp.stock_id)
+        stock = session.get(Stock, dp.stock_id)
         if stock:
             report["stocks_with_outliers"].append({
                 "code": stock.code, "name": stock.name,

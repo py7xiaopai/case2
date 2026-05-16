@@ -49,6 +49,7 @@ services:
       DB_USER: stock_user
       DB_PASSWORD: stock_pass
       DB_NAME: stock_market
+      API_BASE: http://stock-api:8000
     depends_on:
       - api
     command: streamlit run src/stock_platform/dashboard/app.py --server.port 8501 --server.address 0.0.0.0

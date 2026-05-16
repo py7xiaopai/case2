@@ -2,6 +2,7 @@
 import time
 import requests
 import json
+from datetime import datetime
 from sqlalchemy.orm import Session
 from stock_platform.db.models import Stock, CrawlTask
 from stock_platform import settings
@@ -25,13 +26,16 @@ def crawl_stock_list(session: Session) -> int:
 
     try:
         stocks = _fetch_from_sina()
+        now = datetime.now()
         count = 0
         for s in stocks:
             existing = session.query(Stock).filter_by(code=s["code"]).first()
             if existing:
                 for key, val in s.items():
                     setattr(existing, key, val)
+                existing.source_updated_at = now
             else:
+                s["source_updated_at"] = now
                 session.add(Stock(**s))
             count += 1
 
@@ -113,20 +117,48 @@ def _fetch_from_sina() -> list[dict]:
                 continue
             seen_codes.add(code)
 
-            # 根据代码前缀判断市场
+            # 根据代码前缀判断市场和板块
             if code.startswith("6"):
                 market = "SH"
-            elif code.startswith(("0", "3")):
+                board = "主板"
+            elif code.startswith(("0",)):
                 market = "SZ"
-            elif code.startswith(("8", "4", "92")):
+                board = "主板"
+            elif code.startswith(("3",)):
+                market = "SZ"
+                board = "创业板"
+            elif code.startswith(("688",)):
+                market = "SH"
+                board = "科创板"
+            elif code.startswith(("8", "4", "920")):
                 market = "BJ"
+                board = "北交所"
             else:
                 market = "SH" if symbol.startswith("sh") else "SZ"
+                board = None
+
+            # 市值（新浪返回单位为万元，转换为元存储）
+            mktcap = item.get("mktcap")
+            nmc = item.get("nmc")
+            try:
+                raw = float(mktcap) if mktcap and mktcap != "-" else None
+                total_market_cap = raw * 10000 if raw is not None else None
+            except (ValueError, TypeError):
+                total_market_cap = None
+            try:
+                raw = float(nmc) if nmc and nmc != "-" else None
+                circulating_market_cap = raw * 10000 if raw is not None else None
+            except (ValueError, TypeError):
+                circulating_market_cap = None
 
             stocks.append({
                 "code": code,
                 "name": name,
                 "market": market,
+                "exchange": market,
+                "board": board,
+                "total_market_cap": total_market_cap,
+                "circulating_market_cap": circulating_market_cap,
             })
 
         if len(data) < page_size:

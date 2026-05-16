@@ -106,9 +106,7 @@ def _macd(closes: np.ndarray) -> tuple:
     ema12 = _ema(closes, 12)
     ema26 = _ema(closes, 26)
     dif = ema12[-1] - ema26[-1]
-    dea = _ema(np.array([dif]), 9)[-1] if len(closes) >= 26 else 0.0
-
-    # Better DEA calculation: use all DIF values
+    # DEA: EMA of all DIF values over the full series
     difs = ema12 - ema26
     dea = _ema(difs, 9)[-1] if len(difs) >= 9 else difs[-1]
     bar = 2 * (dif - dea)

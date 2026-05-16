@@ -13,15 +13,22 @@ class Stock(Base):
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     code = Column(String(10), nullable=False, unique=True, comment="股票代码")
     name = Column(String(100), nullable=False, comment="股票名称")
-    market = Column(String(10), nullable=True, comment="市场: SH/SZ/BJ")
+    market = Column(String(10), nullable=True, comment="市场: SH/SZ/BJ (deprecated, use exchange)")
+    exchange = Column(String(10), nullable=True, comment="交易所: SH/SZ/BJ")
+    board = Column(String(20), nullable=True, comment="板块: 主板/创业板/科创板/北交所")
     industry = Column(String(100), nullable=True, comment="行业")
     listing_date = Column(Date, nullable=True, comment="上市日期")
     status = Column(Integer, default=1, comment="状态: 1正常 0暂停 -1退市")
+    total_market_cap = Column(DECIMAL(20, 4), nullable=True, comment="总市值(元)")
+    circulating_market_cap = Column(DECIMAL(20, 4), nullable=True, comment="流通市值(元)")
+    source_updated_at = Column(DateTime, nullable=True, comment="数据来源最近更新时间")
     created_at = Column(DateTime, server_default=func.now(), comment="创建时间")
     updated_at = Column(DateTime, server_default=func.now(), onupdate=func.now(), comment="更新时间")
 
     __table_args__ = (
         Index("idx_stock_market", "market"),
+        Index("idx_stock_exchange", "exchange"),
+        Index("idx_stock_board", "board"),
     )
 
 
