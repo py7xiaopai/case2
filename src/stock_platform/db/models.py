@@ -1,8 +1,19 @@
 from sqlalchemy import (
-    Column, String, Integer, Float, BigInteger, Date, DateTime,
-    Text, DECIMAL, UniqueConstraint, Index, ForeignKey
+    DECIMAL,
+    BigInteger,
+    Column,
+    Date,
+    DateTime,
+    Float,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    UniqueConstraint,
 )
 from sqlalchemy.sql import func
+
 from stock_platform.db.engine import Base
 
 

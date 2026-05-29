@@ -1,6 +1,8 @@
 """交易日历生成脚本"""
 from datetime import date, timedelta
+
 from sqlalchemy.orm import Session
+
 from stock_platform.db.models import TradingCalendar
 
 

@@ -1,6 +1,6 @@
 """API 接口测试（适配统一响应结构）"""
-import pytest
 from fastapi.testclient import TestClient
+
 from stock_platform.api.main import app
 
 client = TestClient(app)

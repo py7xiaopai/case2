@@ -1,8 +1,10 @@
 """技术指标计算模块"""
-import numpy as np
 from decimal import Decimal
+
+import numpy as np
 from sqlalchemy.orm import Session
-from stock_platform.db.models import Stock, DailyPrice, TechnicalIndicator, CrawlTask
+
+from stock_platform.db.models import CrawlTask, DailyPrice, Stock, TechnicalIndicator
 
 
 def calculate_indicators(session: Session, stock: Stock) -> int:
@@ -18,20 +20,29 @@ def calculate_indicators(session: Session, stock: Stock) -> int:
         return 0
 
     closes = np.array([float(p.close_price) for p in prices], dtype=np.float64)
-    highs = np.array([float(p.high_price) for p in prices], dtype=np.float64)
-    lows = np.array([float(p.low_price) for p in prices], dtype=np.float64)
-    dates = [p.trade_date for p in prices]
+
+    # 预加载已有指标日期，避免 N+1 查重
+    existing_dates = {
+        r[0] for r in
+        session.query(TechnicalIndicator.trade_date)
+        .filter(TechnicalIndicator.stock_id == stock.id)
+        .all()
+    }
+
+    # 预计算 MACD 全序列，避免 O(n²)
+    ema12_full = _ema(closes, 12)
+    ema26_full = _ema(closes, 26)
+    dif_full = ema12_full - ema26_full
+    dea_full = _ema(dif_full, 9)
+    bar_full = 2 * (dif_full - dea_full)
 
     count = 0
     for i in range(len(prices)):
         if i < 5:
-            continue  # need at least 5 days for MA5
+            continue
 
         dp = prices[i]
-        existing = session.query(TechnicalIndicator).filter_by(
-            stock_id=stock.id, trade_date=dp.trade_date
-        ).first()
-        if existing:
+        if dp.trade_date in existing_dates:
             continue
 
         ti = TechnicalIndicator(stock_id=stock.id, trade_date=dp.trade_date)
@@ -43,11 +54,10 @@ def calculate_indicators(session: Session, stock: Stock) -> int:
         ti.ma30 = _ma(closes, i, 30) if i >= 29 else None
         ti.ma60 = _ma(closes, i, 60) if i >= 59 else None
 
-        # MACD
-        dif, dea, bar = _macd(closes[:i + 1])
-        ti.macd_dif = _dec(dif)
-        ti.macd_dea = _dec(dea)
-        ti.macd_bar = _dec(bar)
+        # MACD (从预计算序列取值)
+        ti.macd_dif = _dec(dif_full[i])
+        ti.macd_dea = _dec(dea_full[i])
+        ti.macd_bar = _dec(bar_full[i])
 
         # RSI
         if i >= 5:
@@ -96,22 +106,6 @@ def _ma(arr: np.ndarray, i: int, n: int) -> float | None:
     if i < n - 1:
         return None
     return round(float(arr[i - n + 1:i + 1].mean()), 4)
-
-
-def _macd(closes: np.ndarray) -> tuple:
-    """计算 MACD"""
-    if len(closes) < 26:
-        return 0.0, 0.0, 0.0
-
-    ema12 = _ema(closes, 12)
-    ema26 = _ema(closes, 26)
-    dif = ema12[-1] - ema26[-1]
-    # DEA: EMA of all DIF values over the full series
-    difs = ema12 - ema26
-    dea = _ema(difs, 9)[-1] if len(difs) >= 9 else difs[-1]
-    bar = 2 * (dif - dea)
-
-    return round(dif, 4), round(dea, 4), round(bar, 4)
 
 
 def _ema(arr: np.ndarray, n: int) -> np.ndarray:

@@ -11,11 +11,11 @@ from datetime import date, datetime
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-import pandas as pd
 import numpy as np
+import pandas as pd
 from sqlalchemy.orm import Session
 
-from stock_platform.db.models import Stock, DailyPrice, TechnicalIndicator
+from stock_platform.db.models import Stock
 
 logger = logging.getLogger("stock_platform.cleaning")
 

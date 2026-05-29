@@ -12,9 +12,9 @@
 import re
 import time
 import logging
-import subprocess
 from datetime import datetime, date
 
+import requests
 from sqlalchemy.orm import Session
 
 from stock_platform.db.engine import SessionLocal
@@ -27,21 +27,24 @@ logging.basicConfig(
 )
 logger = logging.getLogger("backfill")
 
+SINA_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/120.0.0.0 Safari/537.36"
+    ),
+    "Accept-Language": "zh-CN,zh;q=0.9,en;q=0.8",
+}
+
 
 def fetch_sina_page(url: str, encoding: str = "gbk", timeout: int = 15) -> str | None:
     """下载新浪 F10 页面并解码"""
     try:
-        result = subprocess.run(
-            ["curl", "-s", "--max-time", str(timeout), url],
-            capture_output=True, timeout=timeout + 5,
-        )
-        if result.returncode != 0 or not result.stdout:
-            return None
-        try:
-            return result.stdout.decode(encoding)
-        except UnicodeDecodeError:
-            return result.stdout.decode(encoding, errors="replace")
-    except (subprocess.TimeoutExpired, OSError):
+        resp = requests.get(url, headers=SINA_HEADERS, timeout=timeout)
+        resp.raise_for_status()
+        resp.encoding = encoding
+        return resp.text
+    except requests.RequestException:
         return None
 
 

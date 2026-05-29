@@ -10,13 +10,13 @@
   - 近期行情表：千分位、万手、涨跌颜色、最近交易日高亮、滚动
 """
 import os
+from datetime import date, timedelta
 
-import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
-from plotly.subplots import make_subplots
 import requests
-from datetime import date, timedelta
+import streamlit as st
+from plotly.subplots import make_subplots
 
 st.set_page_config(
     page_title="A 股行情数据平台",
@@ -71,6 +71,12 @@ def format_volume_to_wan(v):
         return "暂无"
 
 
+def _extract(resp):
+    """从统一 API 响应中提取 data 字段"""
+    body = resp.json()
+    return body.get("data", body) if isinstance(body, dict) else body
+
+
 def color_pct(v, inverse=False):
     """涨跌颜色"""
     if v is None:
@@ -112,8 +118,7 @@ with st.sidebar:
         try:
             resp = requests.get(f"{API_BASE}/stocks/search", params={"q": q, "limit": 10}, timeout=TIMEOUT)
             if resp.status_code == 200:
-                data = resp.json()
-                stocks = data.get("data", data) if isinstance(data, dict) else data
+                stocks = _extract(resp)
                 if stocks:
                     st.session_state["stocks"] = stocks
                 else:
@@ -137,8 +142,7 @@ with st.sidebar:
     try:
         q_resp = requests.get(f"{API_BASE}/quality", timeout=TIMEOUT)
         if q_resp.status_code == 200:
-            qd = q_resp.json()
-            qd_data = qd.get("data", qd) if isinstance(qd, dict) else qd
+            qd_data = _extract(q_resp)
             st.metric("股票总数", f"{format_num(qd_data.get('stock_count', 0))} 家")
             st.metric("日线数据", f"{format_num(qd_data.get('daily_prices_count', 0))} 条")
             st.metric("技术指标", f"{format_num(qd_data.get('indicator_count', 0))} 条")
@@ -164,8 +168,7 @@ else:
         if detail_resp.status_code != 200:
             st.error("股票不存在或 API 返回错误")
             st.stop()
-        detail = detail_resp.json()
-        detail_data = detail.get("data", detail) if isinstance(detail, dict) else detail
+        detail_data = _extract(detail_resp)
 
         name = detail_data.get("name", code)
         st.header(f"{name} ({code})")
@@ -207,8 +210,7 @@ else:
             st.warning("行情数据不可用")
             st.stop()
 
-        chart_data = chart_resp.json()
-        prices_raw = chart_data.get("data", chart_data) if isinstance(chart_data, dict) else chart_data
+        prices_raw = _extract(chart_resp)
 
         if prices_raw and isinstance(prices_raw, list):
             df = pd.DataFrame(prices_raw)
@@ -335,8 +337,7 @@ else:
             timeout=TIMEOUT,
         )
         if ind_resp.status_code == 200:
-            ind_data = ind_resp.json()
-            indicators = ind_data.get("data", ind_data) if isinstance(ind_data, dict) else ind_data
+            indicators = _extract(ind_resp)
 
             if indicators and isinstance(indicators, list):
                 indf = pd.DataFrame(indicators)

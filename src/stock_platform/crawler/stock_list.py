@@ -1,11 +1,13 @@
 """股票列表抓取模块 —— 从新浪财经网页接口抓取"""
-import time
-import requests
 import json
+import time
 from datetime import datetime
+
+import requests
 from sqlalchemy.orm import Session
-from stock_platform.db.models import Stock, CrawlTask
+
 from stock_platform import settings
+from stock_platform.db.models import CrawlTask, Stock
 
 WEB_HEADERS = {
     "User-Agent": (
@@ -78,13 +80,22 @@ def _fetch_from_sina() -> list[dict]:
             "&node=hs_a&symbol=&_s_r_a=init"
         )
 
-        try:
-            resp = http.get(url, timeout=settings.crawler_timeout)
-            resp.encoding = "gbk"
-            text = resp.text.strip()
-        except Exception as e:
-            print(f"  抓取失败(page={page}): {e}")
-            break
+        retries = settings.crawler_retries
+        text = ""
+        for attempt in range(retries):
+            try:
+                resp = http.get(url, timeout=settings.crawler_timeout)
+                resp.encoding = "gbk"
+                text = resp.text.strip()
+                if text and text != "null":
+                    break
+            except Exception as e:
+                if attempt == retries - 1:
+                    print(f"  抓取失败(page={page}, {retries}次重试后): {e}")
+                    text = ""
+                else:
+                    time.sleep(1 * (attempt + 1))
+                    continue
 
         if not text or text == "null":
             break
@@ -121,13 +132,13 @@ def _fetch_from_sina() -> list[dict]:
             if code.startswith("6"):
                 market = "SH"
                 board = "主板"
-            elif code.startswith(("0",)):
+            elif code.startswith("0"):
                 market = "SZ"
                 board = "主板"
-            elif code.startswith(("3",)):
+            elif code.startswith("3"):
                 market = "SZ"
                 board = "创业板"
-            elif code.startswith(("688",)):
+            elif code.startswith("688"):
                 market = "SH"
                 board = "科创板"
             elif code.startswith(("8", "4", "920")):

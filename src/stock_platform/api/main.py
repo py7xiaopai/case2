@@ -3,7 +3,7 @@ import logging
 import re
 import time
 from datetime import date, datetime, timedelta
-from typing import Any, Optional
+from typing import Any
 
 from cachetools import TTLCache
 from fastapi import Depends, FastAPI, HTTPException, Query, Request
@@ -12,7 +12,7 @@ from pydantic import BaseModel, Field
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from slowapi.util import get_remote_address
-from sqlalchemy import desc, func
+from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
 from stock_platform.data.etl import data_quality_check
@@ -23,11 +23,12 @@ from stock_platform.db.models import DailyPrice, Stock, TechnicalIndicator
 
 logger = logging.getLogger("stock_platform.api")
 logger.setLevel(logging.INFO)
-_ch = logging.StreamHandler()
-_ch.setFormatter(logging.Formatter(
-    "%(asctime)s | %(levelname)-5s | %(name)s | %(message)s",
-))
-logger.addHandler(_ch)
+if not logger.handlers:
+    _ch = logging.StreamHandler()
+    _ch.setFormatter(logging.Formatter(
+        "%(asctime)s | %(levelname)-5s | %(name)s | %(message)s",
+    ))
+    logger.addHandler(_ch)
 
 # ── 速率限制器 ──────────────────────────────────────────
 
@@ -50,67 +51,6 @@ class ErrorResponse(BaseModel):
     message: str = Field(..., description="错误描述")
 
 
-class StockItem(BaseModel):
-    """股票搜索 / 详情条目"""
-    id: int
-    code: str
-    name: str
-    market: Optional[str] = None
-    industry: Optional[str] = None
-    listing_date: Optional[str] = None
-    status: int
-
-
-class PriceItem(BaseModel):
-    """日线行情条目"""
-    date: str
-    open: Optional[float] = None
-    close: Optional[float] = None
-    high: Optional[float] = None
-    low: Optional[float] = None
-    volume: int = 0
-    amount: float = 0
-    pct_change: Optional[float] = None
-    turnover_rate: Optional[float] = None
-
-
-class PaginatedPrices(BaseModel):
-    """分页行情数据"""
-    items: list[PriceItem]
-    total: int
-    page: int
-    page_size: int
-    total_pages: int
-
-
-class IndicatorItem(BaseModel):
-    """技术指标条目"""
-    date: str
-    ma5: Optional[float] = None
-    ma10: Optional[float] = None
-    ma20: Optional[float] = None
-    ma60: Optional[float] = None
-    macd_dif: Optional[float] = None
-    macd_dea: Optional[float] = None
-    macd_bar: Optional[float] = None
-    rsi_6: Optional[float] = None
-    rsi_12: Optional[float] = None
-    rsi_24: Optional[float] = None
-    boll_up: Optional[float] = None
-    boll_mid: Optional[float] = None
-    boll_down: Optional[float] = None
-
-
-class RankingItem(BaseModel):
-    """排行榜条目"""
-    code: str
-    name: str
-    close: Optional[float] = None
-    pct_change: Optional[float] = None
-    volume: int = 0
-    amount: Optional[float] = None
-
-
 # ── FastAPI 应用 ───────────────────────────────────────
 
 app = FastAPI(
@@ -130,7 +70,7 @@ CODE_PATTERN = re.compile(r"^\d{6}$")
 _detail_cache: TTLCache = TTLCache(maxsize=256, ttl=300)
 
 
-def _validate_date(val: Optional[str], name: str) -> Optional[str]:
+def _validate_date(val: str | None, name: str) -> str | None:
     """校验日期格式 YYYY-MM-DD，返回规范化后的字符串"""
     if val is None:
         return None
@@ -257,7 +197,7 @@ async def health():
 )
 def search_stocks(
     q: str = Query("", description="股票代码或名称"),
-    market: Optional[str] = Query(None, description="市场: SH/SZ/BJ"),
+    market: str | None = Query(None, description="市场: SH/SZ/BJ"),
     limit: int = Query(20, le=100, description="返回条数上限"),
     db: Session = Depends(get_db),
 ):
@@ -312,8 +252,8 @@ def stock_prices(
     code: str,
     page: int = Query(1, ge=1, description="页码"),
     page_size: int = Query(100, ge=1, le=500, description="每页条数"),
-    start: Optional[str] = Query(None, description="起始日期 YYYY-MM-DD"),
-    end: Optional[str] = Query(None, description="结束日期 YYYY-MM-DD"),
+    start: str | None = Query(None, description="起始日期 YYYY-MM-DD"),
+    end: str | None = Query(None, description="结束日期 YYYY-MM-DD"),
     db: Session = Depends(get_db),
 ):
     _validate_code(code)
@@ -358,8 +298,8 @@ def stock_prices(
 )
 def stock_chart(
     code: str,
-    start: Optional[str] = Query(None, description="起始日期 YYYY-MM-DD（默认最近 1 年）"),
-    end: Optional[str] = Query(None, description="结束日期 YYYY-MM-DD"),
+    start: str | None = Query(None, description="起始日期 YYYY-MM-DD（默认最近 1 年）"),
+    end: str | None = Query(None, description="结束日期 YYYY-MM-DD"),
     db: Session = Depends(get_db),
 ):
     _validate_code(code)
@@ -439,7 +379,7 @@ def stock_indicators(
     description="获取指定日期涨跌幅排行榜，支持升序/降序",
 )
 def ranking_changes(
-    date_str: Optional[str] = Query(None, description="日期 YYYY-MM-DD"),
+    date_str: str | None = Query(None, description="日期 YYYY-MM-DD"),
     direction: str = Query("desc", pattern="^(asc|desc)$", description="排序方向 asc 升序 / desc 降序"),
     limit: int = Query(20, le=100, description="返回条数上限"),
     db: Session = Depends(get_db),
@@ -478,7 +418,7 @@ def ranking_changes(
     description="获取指定日期成交量排行榜",
 )
 def ranking_volume(
-    date_str: Optional[str] = Query(None, description="日期 YYYY-MM-DD"),
+    date_str: str | None = Query(None, description="日期 YYYY-MM-DD"),
     limit: int = Query(20, le=100, description="返回条数上限"),
     db: Session = Depends(get_db),
 ):
@@ -530,8 +470,8 @@ def quality(db: Session = Depends(get_db)):
 )
 def export_prices(
     code: str,
-    start: Optional[str] = Query(None, description="起始日期 YYYY-MM-DD"),
-    end: Optional[str] = Query(None, description="结束日期 YYYY-MM-DD"),
+    start: str | None = Query(None, description="起始日期 YYYY-MM-DD"),
+    end: str | None = Query(None, description="结束日期 YYYY-MM-DD"),
     db: Session = Depends(get_db),
 ):
     _validate_code(code)

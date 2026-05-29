@@ -1,8 +1,8 @@
 """数据质量检查模块"""
-from datetime import date, timedelta
-from sqlalchemy.orm import Session
 from sqlalchemy import func
-from stock_platform.db.models import Stock, DailyPrice, TechnicalIndicator, TradingCalendar
+from sqlalchemy.orm import Session
+
+from stock_platform.db.models import DailyPrice, Stock, TechnicalIndicator, TradingCalendar
 
 
 def data_quality_check(session: Session) -> dict:
@@ -75,9 +75,6 @@ def data_quality_check(session: Session) -> dict:
                     "gap_days": delta - 1,
                 })
 
-    if not report["stocks_with_missing_dates"]:
-        report["stocks_with_missing_dates"] = []
-
     if not report["issues"]:
         total_issues = (
             len(report["stocks_with_null_prices"])
@@ -85,11 +82,11 @@ def data_quality_check(session: Session) -> dict:
             + len(report["date_gaps"])
         )
         if total_issues == 0:
-            report["issues"].append("✅ 未发现数据质量问题")
+            report["issues"].append("未发现数据质量问题")
         else:
-            report["issues"].append(f"⚠️ 发现 {total_issues} 个数据问题")
+            report["issues"].append(f"发现 {total_issues} 个数据问题")
 
-    report["issues"].append(f"📊 股票: {report['stock_count']} | 日线: {report['daily_prices_count']} | 指标: {report['indicator_count']} | 日历: {report['calendar_count']}")
+    report["issues"].append(f"股票: {report['stock_count']} | 日线: {report['daily_prices_count']} | 指标: {report['indicator_count']} | 日历: {report['calendar_count']}")
 
     return report
 

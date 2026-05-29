@@ -1,9 +1,9 @@
 """技术指标计算测试"""
-import pytest
-import numpy as np
-from datetime import date
 
-from stock_platform.data.indicators import _ma, _rsi, _bollinger
+import numpy as np
+import pytest
+
+from stock_platform.data.indicators import _bollinger, _ma, _rsi
 
 
 def test_ma():
